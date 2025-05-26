@@ -1,0 +1,16 @@
+[project]
+name = "cyrillic-ocr"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "datasets>=3.6.0",
+    "easyocr>=1.7.2",
+    "levenshtein>=0.27.1",
+    "torch>=2.7.0",
+    "torchvision>=0.22.0",
+    "transformers>=4.51.3",
+    "types-tqdm>=4.67.0.20250516",
+    "wandb>=0.19.11",
+]
