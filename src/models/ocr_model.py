@@ -23,9 +23,9 @@ class OCRModel(nn.Module):
         super(OCRModel, self).__init__()
         self.backbone = backbone
 
-        self.pos_encoder = PositionalEncoding(hidden, dropout, batch_first=True)
+        self.pos_encoder = PositionalEncoding(hidden, dropout)
         self.decoder = nn.Embedding(outtoken, hidden)
-        self.pos_decoder = PositionalEncoding(hidden, dropout, batch_first=True)
+        self.pos_decoder = PositionalEncoding(hidden, dropout)
         self.transformer = nn.Transformer(
             d_model=hidden,
             nhead=nhead,
@@ -34,7 +34,7 @@ class OCRModel(nn.Module):
             dim_feedforward=hidden * 4,
             dropout=dropout,
             activation="relu",
-            batch_first=True,
+            # batch_first=True,
         )
 
         self.fc_out = nn.Linear(hidden, outtoken)
@@ -52,19 +52,18 @@ class OCRModel(nn.Module):
         return mask.float().masked_fill(mask, float("-inf"))
 
     def forward(self, src, trg):
-        # src: [B, C, H, W]
-        # trg: [T, B], token indices from dataloader
-        x = self.backbone.forward(src)  # [B, W, hidden]
-        src = self.pos_encoder(x)  # [B, W, hidden]
-        src_pad_mask = (
-            x[:, :, 0] == 0
-        )  # [B, W], assuming first feature indicates padding
+        if self.trg_mask is None or self.trg_mask.size(0) != len(trg):
+            self.trg_mask = self.generate_square_subsequent_mask(len(trg)).to(
+                trg.device
+            )
 
-        # Compute target padding mask from token indices
-        trg_input = trg.transpose(0, 1)  # [B, T], token indices
-        trg_pad_mask = trg_input == 0  # [B, T]
-        trg_embed = self.decoder(trg_input)  # [B, T, hidden]
-        trg = self.pos_decoder(trg_embed)  # [B, T, hidden]
+        x = self.backbone.forward(src)
+
+        src_pad_mask = self.make_len_mask(x[:, :, 0])
+        src = self.pos_encoder(x)  # [8, 64, 512]
+        trg_pad_mask = self.make_len_mask(trg)
+        trg = self.decoder(trg)
+        trg = self.pos_decoder(trg)
 
         output = self.transformer(
             src,
@@ -75,8 +74,9 @@ class OCRModel(nn.Module):
             src_key_padding_mask=src_pad_mask,
             tgt_key_padding_mask=trg_pad_mask,
             memory_key_padding_mask=src_pad_mask,
-        )  # [B, T, hidden]
-        # ... rest of the forward pass
+        )  # [13, 64, 512] : [L,B,CH]
+        output = self.fc_out(output)  # [13, 64, 92] : [L,B,H]
+
         return output
 
     def save_model(self, save_path: os.PathLike):
@@ -99,26 +99,41 @@ class OCRModel(nn.Module):
         return model
 
     def encode(self, src: torch.Tensor) -> torch.Tensor:
-        x = self.backbone(src)  # [B, W, hidden]
-        src = self.pos_encoder(x)  # [B, W, hidden]
-        memory = self.transformer.encoder(src)  # [B, W, hidden]
+        """
+        Compute the encoder output for the input image tensor.
+        Args:
+            src (Tensor): [B, C, H, W]
+        Returns:
+            Tensor: [W, B, hidden] (encoder memory)
+        """
+        x = self.backbone(src)  # Process image through backbone
+        src = self.pos_encoder(x)  # Add positional encoding
+        memory = self.transformer.encoder(src)  # Encode
         return memory
 
     def decode(self, trg: torch.Tensor, memory: torch.Tensor) -> torch.Tensor:
-        trg = trg.transpose(0, 1)  # [B, T]
-        trg_embed = self.decoder(trg)  # [B, T, hidden]
-        trg_pos = self.pos_decoder(trg_embed)  # [B, T, hidden]
-        output = self.transformer.decoder(trg_pos, memory)  # [B, T, hidden]
-        output = self.fc_out(output)  # [B, T, vocab_size]
+        """
+        Decode using the target sequence and encoder memory.
+        Args:
+            trg (Tensor): [T, B]
+            memory (Tensor): [W, B, hidden]
+        Returns:
+            Tensor: [T, B, vocab_size]
+        """
+        trg_embed = self.decoder(trg)  # Embed target tokens
+        trg_pos = self.pos_decoder(trg_embed)  # Add positional encoding
+        output = self.transformer.decoder(trg_pos, memory)  # Decode
+        output = self.fc_out(output)  # Map to vocabulary
         return output
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_model, dropout=0.1, max_len=5000, batch_first=False):
+
+    def __init__(self, d_model, dropout=0.1, max_len=5000):
         super(PositionalEncoding, self).__init__()
         self.dropout = nn.Dropout(p=dropout)
         self.scale = nn.Parameter(torch.ones(1))
-        self.batch_first = batch_first
+
         pe = torch.zeros(max_len, d_model)
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(
@@ -126,18 +141,11 @@ class PositionalEncoding(nn.Module):
         )
         pe[:, 0::2] = torch.sin(position * div_term)
         pe[:, 1::2] = torch.cos(position * div_term)
-        pe = (
-            pe.unsqueeze(0) if batch_first else pe.unsqueeze(1)
-        )  # [1, max_len, d_model] or [max_len, 1, d_model]
+        pe = pe.unsqueeze(0).transpose(0, 1)
         self.register_buffer("pe", pe)
 
     def forward(self, x):
-        if self.batch_first:
-            # [B, seq_len, d_model]
-            x = x + self.scale * self.pe[:, : x.size(1), :]  # type:ignore
-        else:
-            # [seq_len, B, d_model]
-            x = x + self.scale * self.pe[: x.size(0), :, :]  # type:ignore
+        x = x + self.scale * self.pe[: x.size(0), :]  # type: ignore
         return self.dropout(x)
 
 

@@ -1,7 +1,6 @@
 import os
 import torch
 from tqdm import tqdm
-from torch.optim import SGD
 from config.model_config import OCRModelConfig
 from models.ocr_model import OCRModel
 import torch.nn as nn
@@ -48,11 +47,8 @@ def train_epoch(
 
         optimizer.zero_grad()
         with autocast("mps"):
-            output = wrapper.model(src, trg[:-1, :])  # [B, T-1, vocab_size]
-            loss = criterion(
-                output.view(-1, output.shape[-1]),
-                trg[1:, :].transpose(0, 1).contiguous().view(-1),
-            )
+            output = wrapper.model(src, trg[:-1])
+            loss = criterion(output.view(-1, output.shape[-1]), trg[1:, :].view(-1))
         scaler.scale(loss).backward()
         torch.nn.utils.clip_grad_norm_(wrapper.model.parameters(), max_norm=1.0)
         scaler.step(optimizer)
@@ -109,21 +105,21 @@ def validate_epoch(
                 cer_overall += cer
                 wer_overall += wer
 
-                # # Randomly select samples to log
-                # if len(samples_to_log) < num_samples_to_log and random.random() < (
-                #     num_samples_to_log / max(total_samples, 1)
-                # ):
-                #     # Un-normalize and convert image tensor to PIL
-                #     img = src[i].cpu()  # [C, H, W]
-                #     if img.shape[0] != 1:
-                #         raise ValueError(
-                #             f"Expected grayscale image with 1 channel, got {img.shape[0]} channels"
-                #         )
-                #     img = img * 0.5 + 0.5  # Un-normalize: reverse mean=[0.5], std=[0.5]
-                #     img = img.clamp(0, 1)  # Ensure values in [0, 1]
-                #     img = img.squeeze(0)  # [H, W]
-                #     img = torchvision.transforms.ToPILImage()(img)
-                #     samples_to_log.append((img, label, pred, cer, wer))
+                # Randomly select samples to log
+                if len(samples_to_log) < num_samples_to_log and random.random() < (
+                    num_samples_to_log / max(total_samples, 1)
+                ):
+                    # Un-normalize and convert image tensor to PIL
+                    img = src[i].cpu()  # [C, H, W]
+                    if img.shape[0] != 1:
+                        raise ValueError(
+                            f"Expected grayscale image with 1 channel, got {img.shape[0]} channels"
+                        )
+                    img = img * 0.5 + 0.5  # Un-normalize: reverse mean=[0.5], std=[0.5]
+                    img = img.clamp(0, 1)  # Ensure values in [0, 1]
+                    img = img.squeeze(0)  # [H, W]
+                    img = torchvision.transforms.ToPILImage()(img)
+                    samples_to_log.append((img, label, pred, cer, wer))
 
     # Populate W&B Table
     for img, gt, pred, cer, wer in samples_to_log:
@@ -156,21 +152,21 @@ def train(
     patience_counter = 0
     for epoch in range(epochs):
         print(f"==================== EPOCH {(epoch + 1)} ====================")
-        # train_loss = train_epoch(wrapper, optimizer, scheduler, criterion, train_loader)
+        train_loss = train_epoch(wrapper, optimizer, scheduler, criterion, train_loader)
         cer_loss, wer_loss, validation_loss = validate_epoch(
             epoch, wrapper, criterion, validation_loader, table, num_samples_to_log=5
         )
         wandb.log(
             {
                 "epoch": epoch,
-                # "train_loss": train_loss,
+                "train_loss": train_loss,
                 "validation_loss": validation_loss,
                 "cer_loss": cer_loss,
                 "wer_loss": wer_loss,
             }
         )
         print(
-            # f"Epoch {epoch}: Train Loss={train_loss:.4f}, Val Loss={validation_loss:.4f}, CER={cer_loss:.4f}, WER={wer_loss:.4f}"
+            f"Epoch {epoch}: Train Loss={train_loss:.4f}, Val Loss={validation_loss:.4f}, CER={cer_loss:.4f}, WER={wer_loss:.4f}"
         )
         if cer_loss < best_cer:
             best_cer = cer_loss
