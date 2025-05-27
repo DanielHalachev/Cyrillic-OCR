@@ -1,3 +1,4 @@
+import copy
 import torch
 from torchvision import transforms  # type:ignore
 from PIL import Image
@@ -14,6 +15,15 @@ class OCRModelWrapper:
         self.model.eval()
         self.config = config
         self.device = device
+
+        if device.type == "mps":
+            print("Using MPS with compatibility mode")
+            self.cpu_model = model
+            self.model = copy.deepcopy(model).to(device)
+            self.model.eval()
+        else:
+            self.model = model.to(device)
+            self.model.eval()
 
         self.transform = transforms.Compose(
             [
@@ -51,33 +61,42 @@ class OCRModelWrapper:
 
         return tensor.to(self.device)
 
-    def predict(self, image_input: str | Image.Image | torch.Tensor) -> list[str]:
+    def predict(self, image_input):
         with torch.no_grad():
-            image_tensor = self.preprocess_image(image_input)  # [B, C, H, W]
+            image_tensor = self.preprocess_image(image_input).to(self.device)
             batch_size = image_tensor.size(0)
-            out_indexes_list = [
-                torch.full(
-                    (batch_size,), self.config.char2idx["SOS"], device=self.device
-                )
-            ]
-            trg_tensor = (
-                torch.LongTensor(out_indexes_list).transpose(0, 1).to(self.device)
-            )  # [1, B]
+            memory = self.model.encode(image_tensor)  # Precomputed encoder output
+
+            # Start with SOS token
+            trg_tensor = torch.full(
+                (1, batch_size), self.config.char2idx["SOS"], device=self.device
+            )
+            active = torch.ones(batch_size, dtype=torch.bool, device=self.device)
 
             for _ in range(self.config.max_length):
-                output = self.model(image_tensor, trg_tensor)  # [T, B, outtoken]
-                out_tokens = output.argmax(2)[-1]  # [B]
-                out_indexes_list.append(out_tokens)
-                trg_tensor = torch.cat(
-                    [trg_tensor, out_tokens.unsqueeze(0)], dim=0
-                )  # [T+1, B]
-                if (out_tokens == self.config.char2idx["EOS"]).all():
+                output = self.model.decode(trg_tensor, memory)  # Decode all sequences
+                out_tokens = output.argmax(2)[
+                    -1
+                ]  # Predict next token for each sequence
+
+                # Append new tokens, padding inactive sequences
+                new_tokens = torch.where(
+                    active, out_tokens, self.config.char2idx["PAD"]
+                )
+                trg_tensor = torch.cat([trg_tensor, new_tokens.unsqueeze(0)], dim=0)
+
+                # Update which sequences are still active
+                active = active & (out_tokens != self.config.char2idx["EOS"])
+                if not active.any():  # Stop if all sequences have EOS
                     break
 
-            out_indexes = torch.stack(out_indexes_list[1:], dim=0).transpose(
-                0, 1
-            )  # [B, T]
-            predicted_texts = [
-                labels_to_text(idxs.tolist(), self.config) for idxs in out_indexes
-            ]
+            # Convert sequences to text
+            predicted_texts = []
+            for b in range(batch_size):
+                seq = trg_tensor[1:, b]
+                eos_idx = (seq == self.config.char2idx["EOS"]).nonzero()
+                if len(eos_idx) > 0:
+                    seq = seq[: eos_idx[0]]
+                predicted_texts.append(labels_to_text(seq.tolist(), self.config))
+
             return predicted_texts

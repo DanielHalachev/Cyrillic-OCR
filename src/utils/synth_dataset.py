@@ -57,8 +57,8 @@ class SyntheticCyrillicDataset(torch.utils.data.Dataset):
         item = self.dataset[index]
         img_tensor = self.transform(item["image"])
         text = item["text"]
-        label_encoding = text_to_labels(item["text"], self.config.char2idx)
-        return img_tensor, item["text"], torch.LongTensor(label_encoding)
+        label_encoding = text_to_labels(text, self.config)
+        return img_tensor, text, torch.LongTensor(label_encoding)
 
 
 def get_synthetic_datasets(config: OCRModelConfig):

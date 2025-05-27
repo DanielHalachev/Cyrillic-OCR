@@ -82,5 +82,4 @@ class CNNBackbone(nn.Module):
         x = nn.AdaptiveAvgPool2d((1, None))(x)  # [B, in_channels, 1, W]
         x = self.backbone.fc(x)  # [B, hidden, 1, W]
         x = x.squeeze(2)  # [B, hidden, W]
-        x = x.permute(2, 0, 1)  # [W, B, hidden]
         return x

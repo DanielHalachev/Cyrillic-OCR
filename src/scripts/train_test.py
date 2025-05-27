@@ -14,6 +14,7 @@ from utils.train_utils import train_natural, train_synthetic
 import wandb
 
 if __name__ == "__main__":
+    os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
     parser = ArgumentParser()
     parser.add_argument(
         "--dataset-dir",
@@ -24,12 +25,19 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.is_available():
+        device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
+    else:
+        device = torch.device("cpu")
 
     model_config = OCRModelConfig()
     train_config = OCRTrainConfig()
     model = ResnetOCRModel(model_config)
-    wrapper = OCRModelWrapper(model, model_config, device)
+    model = model.to(device)
+    print("Device: ", next(model.parameters()).device)
+    # wrapper = OCRModelWrapper(model, model_config, device)
 
     # with wandb.init(project="cyrillic-ocr-synthetic"):
     #     wandb.config.update(
@@ -37,6 +45,7 @@ if __name__ == "__main__":
     #             "learning_rate": train_config.synthentic_lr,
     #             "epochs": train_config.synthetic_epochs,
     #             "batch_size": train_config.synthetic_batch_size,
+    #             "dataset": "https://huggingface.co/datasets/pumb-ai/synthetic-cyrillic-large"
     #         }
     #     )
 
@@ -50,6 +59,7 @@ if __name__ == "__main__":
     #         train_config.synthentic_lr,
     #         train_config.synthetic_decay_rate,
     #         Path(train_config.synthetic_checkpoint_path),
+    #         train_config.workers,
     #     )
 
     #     wandb.finish()
@@ -61,6 +71,7 @@ if __name__ == "__main__":
                 "learning_rate": train_config.natural_lr,
                 "epochs": train_config.natural_epochs,
                 "batch_size": train_config.natural_batch_size,
+                "dataset": "https://www.kaggle.com/datasets/constantinwerner/cyrillic-handwriting-dataset",
             }
         )
         # x
@@ -75,6 +86,8 @@ if __name__ == "__main__":
             train_config.natural_decay_rate,
             args.dataset_dir,
             Path(train_config.natural_checkpoint_path),
+            train_config.workers,
+            train_config.preprocessed,
         )
 
         wandb.finish()

@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import List, Tuple
 import torch
 from torchvision import transforms  # type: ignore
@@ -43,58 +42,84 @@ def split_dataset(
     return train_data, val_data
 
 
+class ResizeAndPadTransform:
+    def __init__(self, height, width):
+        self.height = height
+        self.width = width
+
+    def __call__(self, img):
+        return resize_and_pad(img, self.height, self.width)
+
+
 class OCRModelNaturalDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         data: List[Tuple[str, str]],
         config: OCRModelConfig,
-        eval: bool = False,
+        preprocessed: bool,
+        eval: bool,
     ):
         self.config = config
         self.image_paths, self.labels = zip(*data)
+        self.preprocessed = preprocessed
         self.eval = eval
-        self.transform = transforms.Compose(
-            [
-                # transforms.ToPILImage(),
-                # transforms.Grayscale(num_output_channels=3),
-                transforms.Grayscale(num_output_channels=1),
-                transforms.Lambda(
-                    lambda img: resize_and_pad(
-                        img, self.config.height, self.config.width
-                    )
-                ),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.5], std=[0.5]),
-            ]
-            if eval
-            else [
-                # transforms.ToPILImage(),
-                # transforms.Grayscale(num_output_channels=3),
-                transforms.Grayscale(num_output_channels=1),
-                transforms.Lambda(
-                    lambda img: resize_and_pad(
-                        img, self.config.height, self.config.width
-                    )
-                ),
-                transforms.ColorJitter(contrast=(0.5, 1)),
-                transforms.RandomRotation(degrees=(-9, 9), fill=255),
-                transforms.RandomAffine(degrees=5, scale=(0.9, 1.1), shear=2),
-                transforms.ToTensor(),
-                transforms.Normalize(mean=[0.5], std=[0.5]),
-            ]
-        )
+        if self.preprocessed:
+            self.transform = transforms.Compose(
+                [
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.5], std=[0.5]),
+                ]
+                if eval
+                else [
+                    transforms.ColorJitter(contrast=(0.5, 1)),
+                    transforms.RandomRotation(degrees=(-9, 9), fill=255),
+                    transforms.RandomAffine(degrees=5, scale=(0.9, 1.1), shear=2),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.5], std=[0.5]),
+                ]
+            )
+        else:
+            self.transform = transforms.Compose(
+                [
+                    transforms.Grayscale(num_output_channels=1),
+                    ResizeAndPadTransform(self.config.height, self.config.width),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.5], std=[0.5]),
+                ]
+                if eval
+                else [
+                    transforms.Grayscale(num_output_channels=1),
+                    ResizeAndPadTransform(self.config.height, self.config.width),
+                    transforms.ColorJitter(contrast=(0.5, 1)),
+                    transforms.RandomRotation(degrees=(-9, 9), fill=255),
+                    transforms.RandomAffine(degrees=5, scale=(0.9, 1.1), shear=2),
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.5], std=[0.5]),
+                ]
+            )
 
     def __getitem__(self, index):
-        img = Image.open(self.image_paths[index]).convert("RGB")
-        img_tensor = self.transform(img)
+        img = (
+            Image.open(self.image_paths[index]).convert("L")
+            if self.preprocessed
+            else Image.open(self.image_paths[index]).convert("RGB")
+        )
+
+        img_tensor: torch.Tensor = self.transform(img)  # type: ignore
         label_encoding = text_to_labels(self.labels[index], self.config)
-        return img_tensor, self.labels[index], torch.LongTensor(label_encoding)
+        return (
+            img_tensor,
+            self.labels[index],
+            torch.LongTensor(label_encoding),
+        )
 
     def __len__(self):
         return len(self.image_paths)
 
 
-def get_natural_datasets(config: OCRModelConfig, dataset_dir: str | os.PathLike):
+def get_natural_datasets(
+    config: OCRModelConfig, dataset_dir: str | os.PathLike, preprocessed
+):
     train_val_data = process_data(
         os.path.join(dataset_dir, "train"), os.path.join(dataset_dir, "train.tsv")
     )
@@ -103,8 +128,13 @@ def get_natural_datasets(config: OCRModelConfig, dataset_dir: str | os.PathLike)
         os.path.join(dataset_dir, "test"), os.path.join(dataset_dir, "test.tsv")
     )
 
-    train_dataset = OCRModelNaturalDataset(train_data, config, eval=False)
-    val_dataset = OCRModelNaturalDataset(val_data, config, eval=True)
-    test_dataset = OCRModelNaturalDataset(test_data, config, eval=True)
+    train_dataset = OCRModelNaturalDataset(
+        train_data,
+        config,
+        preprocessed,
+        eval=False,
+    )
+    val_dataset = OCRModelNaturalDataset(val_data, config, preprocessed, eval=True)
+    test_dataset = OCRModelNaturalDataset(test_data, config, preprocessed, eval=True)
 
     return train_dataset, val_dataset, test_dataset

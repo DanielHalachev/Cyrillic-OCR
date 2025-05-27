@@ -1,7 +1,6 @@
 import torch
 import re
 from tqdm import tqdm
-from models.ocr_model import OCRModel
 from models.ocr_model_wrapper import OCRModelWrapper
 from utils.error_rates import char_error_rate, word_error_rate
 from torch.utils.data import DataLoader
@@ -21,9 +20,8 @@ def test(
     with torch.no_grad():
         for src, labels, trg in tqdm(dataloader):
             counter += len(labels)  # Batch size
-            if torch.cuda.is_available():
-                src = src.cuda()
-                trg = trg.cuda()
+            src = src.to(wrapper.device)
+            trg = trg.to(wrapper.device)
 
             predictions = wrapper.predict(src)  # List of predicted texts
             for pred, label in zip(predictions, labels):
