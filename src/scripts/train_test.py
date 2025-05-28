@@ -4,9 +4,10 @@ from pathlib import Path
 
 import torch
 
+from backbones.cnn import CNNBackbone
 from config.model_config import OCRModelConfig
 from config.train_config import OCRTrainConfig
-from models.ocr_model import ResnetOCRModel
+from models.ocr_model import OCRModel, ResnetOCRModel
 from models.ocr_model_wrapper import OCRModelWrapper
 from utils.test_utils import test
 from utils.train_utils import train_natural, train_synthetic
@@ -34,35 +35,35 @@ if __name__ == "__main__":
 
     model_config = OCRModelConfig()
     train_config = OCRTrainConfig()
-    model = ResnetOCRModel(model_config)
-    model = model.to(device)
-    print("Device: ", next(model.parameters()).device)
-    wrapper = OCRModelWrapper(model, model_config, device)
+    # model = ResnetOCRModel(model_config)
+    # model = model.to(device)
+    # print("Device: ", next(model.parameters()).device)
+    # wrapper = OCRModelWrapper(model, model_config, device)
 
-    with wandb.init(project="cyrillic-ocr-synthetic"):
-        wandb.config.update(
-            {
-                "learning_rate": train_config.synthetic_lr,
-                "epochs": train_config.synthetic_epochs,
-                "batch_size": train_config.synthetic_batch_size,
-                "dataset": "https://huggingface.co/datasets/pumb-ai/synthetic-cyrillic-large",
-            }
-        )
+    # with wandb.init(project="cyrillic-ocr-synthetic"):
+    #     wandb.config.update(
+    #         {
+    #             "learning_rate": train_config.synthetic_lr,
+    #             "epochs": train_config.synthetic_epochs,
+    #             "batch_size": train_config.synthetic_batch_size,
+    #             "dataset": "https://huggingface.co/datasets/pumb-ai/synthetic-cyrillic-large",
+    #         }
+    #     )
 
-        wandb.watch(model)
+    #     wandb.watch(model)
 
-        train_synthetic(
-            train_config.synthetic_epochs,
-            model_config,
-            wrapper,
-            train_config.synthetic_batch_size,
-            train_config.synthetic_lr,
-            train_config.synthetic_decay_rate,
-            Path(train_config.synthetic_checkpoint_path),
-            train_config.workers,
-        )
+    #     train_synthetic(
+    #         train_config.synthetic_epochs,
+    #         model_config,
+    #         wrapper,
+    #         train_config.synthetic_batch_size,
+    #         train_config.synthetic_lr,
+    #         train_config.synthetic_decay_rate,
+    #         Path(train_config.synthetic_checkpoint_path),
+    #         train_config.workers,
+    #     )
 
-        wandb.finish()
+    #     wandb.finish()
 
     # if everything goes well with pretraining, uncomment for fine-tuning
     with wandb.init(project="cyrillic-ocr-natural"):
@@ -75,7 +76,20 @@ if __name__ == "__main__":
             }
         )
 
-        # wrapper = OCRModelWrapper(model, model_config, device)
+        model = OCRModel.load_from_checkpoint(
+            model_path=Path(train_config.synthetic_checkpoint_path),
+            device="cuda",
+            backbone=CNNBackbone(model_config.hidden, pretrained=True),
+            outtoken=len(model_config.tokens),
+            hidden=model_config.hidden,
+            enc_layers=model_config.enc_layers,
+            dec_layers=model_config.dec_layers,
+            nhead=model_config.nhead,
+            dropout=model_config.dropout,
+        )
+        wrapper = OCRModelWrapper(model, model_config, device)
+        print("Device: ", next(model.parameters()).device)
+
         wandb.watch(model)
         train_natural(
             train_config.natural_epochs,
