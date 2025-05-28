@@ -138,6 +138,18 @@ class OCRModelConfig:
         self.width = 256
         self.height = 64
         self.max_length = 100
+        self.natural_mean = [0.7564554810523987, 0.7564554810523987, 0.7564554810523987]
+        self.natural_std = [0.2374454289674759, 0.2374454289674759, 0.2374454289674759]
+        self.synthetic_mean = [
+            0.7564554810523987,
+            0.7564554810523987,
+            0.7564554810523987,
+        ]
+        self.synthetic_std = [
+            0.2374454289674759,
+            0.2374454289674759,
+            0.2374454289674759,
+        ]
 
         # Load values from JSON file if provided
         if config_path is not None:

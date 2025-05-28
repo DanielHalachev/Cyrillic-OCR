@@ -9,7 +9,7 @@ class OCRTrainConfig:
     natural_decay_rate = 0.01
 
     synthetic_epochs = 50
-    natural_epochs = 1
+    natural_epochs = 50
 
     synthetic_checkpoint_path = "~/synthetic-resnet-50.pt"
     natural_checkpoint_path = "~/synthetic-natural-resnet-50.pt"

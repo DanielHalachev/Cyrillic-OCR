@@ -13,7 +13,6 @@ from models.ocr_model_wrapper import OCRModelWrapper
 from utils.collate import TextCollate
 from utils.natural_dataset import get_natural_datasets
 from utils.error_rates import char_error_rate, word_error_rate
-from utils.label_text_mapping import labels_to_text
 from utils.synth_dataset import get_synthetic_datasets
 from torch.utils.data import DataLoader
 from utils.test_utils import test
@@ -80,8 +79,14 @@ def validate_epoch(
     counter = 0
     wrapper.model.eval()
 
-    samples_to_log = []
+    logged_samples = 0
     total_samples = 0
+
+    cfg = OCRModelConfig()
+    IMG_MEAN = cfg.natural_mean
+    IMG_STD = cfg.natural_std
+    # IMG_MEAN = cfg.synthetic_mean
+    # IMG_STD = cfg.synthetic_std
 
     with torch.no_grad():
         for src, labels, trg in tqdm(dataloader):
@@ -106,24 +111,24 @@ def validate_epoch(
                 wer_overall += wer
 
                 # Randomly select samples to log
-                if len(samples_to_log) < num_samples_to_log and random.random() < (
+                if logged_samples < num_samples_to_log and random.random() < (
                     num_samples_to_log / max(total_samples, 1)
                 ):
                     # Un-normalize and convert image tensor to PIL
                     img = src[i].cpu()  # [C, H, W]
-                    if img.shape[0] != 1:
-                        raise ValueError(
-                            f"Expected grayscale image with 1 channel, got {img.shape[0]} channels"
-                        )
-                    img = img * 0.5 + 0.5  # Un-normalize: reverse mean=[0.5], std=[0.5]
-                    img = img.clamp(0, 1)  # Ensure values in [0, 1]
-                    img = img.squeeze(0)  # [H, W]
+                    # for 1-dim input
+                    # if img.shape[0] != 1:
+                    #     raise ValueError(
+                    #         f"Expected grayscale image with 1 channel, got {img.shape[0]} channels"
+                    #     )
+                    IMG_MEAN = torch.tensor(IMG_MEAN).view(3, 1, 1)
+                    IMG_STD = torch.tensor(IMG_STD).view(3, 1, 1)
+                    img = img * IMG_STD + IMG_MEAN
+                    img = img.clamp(0, 1)
+                    # img = img.squeeze(0)  # [H, W]
                     img = torchvision.transforms.ToPILImage()(img)
-                    samples_to_log.append((img, label, pred, cer, wer))
-
-    # Populate W&B Table
-    for img, gt, pred, cer, wer in samples_to_log:
-        table.add_data(epoch, wandb.Image(img), gt, pred, cer, wer)
+                    table.add_data(epoch, wandb.Image(img), label, pred, cer, wer)
+                    logged_samples += 1
 
     wandb.log({"validation_samples": table})
 
@@ -182,7 +187,7 @@ def train(
 
 def train_synthetic(
     epochs: int,
-    config: OCRModelConfig,
+    cfg: OCRModelConfig,
     wrapper: OCRModelWrapper,
     batch_size,
     lr,
@@ -190,7 +195,7 @@ def train_synthetic(
     save_path: os.PathLike,
     workers,
 ):
-    train_dataset, val_dataset, test_dataset = get_synthetic_datasets(config)
+    train_dataset, val_dataset, test_dataset = get_synthetic_datasets(cfg)
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -220,7 +225,7 @@ def train_synthetic(
     optimizer = torch.optim.AdamW(
         wrapper.model.parameters(), lr=lr, weight_decay=weight_decay
     )
-    criterion = nn.CrossEntropyLoss(ignore_index=config.char2idx["PAD"])
+    criterion = nn.CrossEntropyLoss(ignore_index=cfg.char2idx["PAD"])
     scheduler = get_scheduler(optimizer, total_steps=(epochs * len(train_loader)) // 10)
 
     train(
@@ -246,7 +251,7 @@ def train_synthetic(
 
 def train_natural(
     epochs,
-    config: OCRModelConfig,
+    cfg: OCRModelConfig,
     wrapper: OCRModelWrapper,
     batch_size,
     lr,
@@ -257,7 +262,7 @@ def train_natural(
     preprocessed=False,
 ):
     train_dataset, val_dataset, test_dataset = get_natural_datasets(
-        config, dataset_dir, preprocessed
+        cfg, dataset_dir, preprocessed
     )
 
     train_loader = torch.utils.data.DataLoader(
@@ -288,7 +293,7 @@ def train_natural(
     optimizer = torch.optim.AdamW(
         wrapper.model.parameters(), lr=lr, weight_decay=weight_decay
     )
-    criterion = nn.CrossEntropyLoss(ignore_index=config.char2idx["PAD"])
+    criterion = nn.CrossEntropyLoss(ignore_index=cfg.char2idx["PAD"])
     scheduler = get_scheduler(optimizer, total_steps=(epochs * len(train_loader)) // 10)
 
     train(

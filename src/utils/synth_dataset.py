@@ -7,7 +7,7 @@ import numpy as np
 
 from config.model_config import OCRModelConfig
 from utils.label_text_mapping import text_to_labels
-from utils.resize_and_pad import resize_and_pad
+from utils.resize_and_pad import ResizeAndPadTransform
 
 
 class SyntheticCyrillicDataset(torch.utils.data.Dataset):
@@ -16,39 +16,32 @@ class SyntheticCyrillicDataset(torch.utils.data.Dataset):
         self.config = config
         self.eval = eval
 
-        if not self.eval:
-            self.transform = transforms.Compose(
-                [
-                    transforms.ToPILImage(),
-                    # transforms.Grayscale(num_output_channels=3),
-                    transforms.Grayscale(),
-                    transforms.Lambda(
-                        lambda img: resize_and_pad(
-                            img, self.config.height, self.config.width
-                        )
-                    ),
-                    transforms.ColorJitter(contrast=(0.5, 1), saturation=(0.5, 1)),
-                    transforms.RandomRotation(degrees=(-9, 9), fill=255),
-                    transforms.RandomAffine(degrees=5, scale=(0.9, 1.1), shear=2),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.5], std=[0.5]),
-                ]
-            )
-        else:
-            self.transform = transforms.Compose(
-                [
-                    transforms.ToPILImage(),
-                    # transforms.Grayscale(num_output_channels=3),
-                    transforms.Grayscale(),
-                    transforms.Lambda(
-                        lambda img: resize_and_pad(
-                            img, self.config.height, self.config.width
-                        )
-                    ),
-                    transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.5], std=[0.5]),
-                ]
-            )
+        self.transform = transforms.Compose(
+            [
+                # transforms.Grayscale(num_output_channels=1),  # for 1-dim input
+                transforms.Grayscale(num_output_channels=3),  # for 3-dim input
+                ResizeAndPadTransform(self.config.height, self.config.width),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=self.config.natural_mean,
+                    std=self.config.natural_std,
+                ),
+            ]
+            if eval
+            else [
+                # transforms.Grayscale(num_output_channels=1), # for 1-dim input
+                transforms.Grayscale(num_output_channels=3),  # for 3-dim input
+                ResizeAndPadTransform(self.config.height, self.config.width),
+                # transforms.ColorJitter(contrast=(0.5, 1)),
+                transforms.RandomRotation(degrees=(-9, 9), fill=255),
+                transforms.RandomAffine(degrees=5, scale=(0.9, 1.1), shear=2),
+                transforms.ToTensor(),
+                transforms.Normalize(
+                    mean=self.config.natural_mean,
+                    std=self.config.natural_std,
+                ),
+            ]
+        )
 
     def __len__(self):
         return len(self.dataset)

@@ -42,20 +42,20 @@ class CNNBackbone(nn.Module):
         self.backbone = getattr(models, backbone_type.value)(weights=weights)
         in_channels = 512 if backbone_type in ["resnet18", "resnet34"] else 2048
 
-        if pretrained:
-            conv1_weight = self.backbone.conv1.weight  # Shape: [64, 3, 7, 7]
-            # Average across the 3 input channels
-            conv1_weight_1ch = conv1_weight.mean(
-                dim=1, keepdim=True
-            )  # Shape: [64, 1, 7, 7]
-            self.backbone.conv1 = nn.Conv2d(
-                1, 64, kernel_size=7, stride=2, padding=3, bias=False
-            )
-            self.backbone.conv1.weight = nn.Parameter(conv1_weight_1ch)
-        else:
-            self.backbone.conv1 = nn.Conv2d(
-                1, 64, kernel_size=7, stride=2, padding=3, bias=False
-            )
+        # if pretrained:
+        #     conv1_weight = self.backbone.conv1.weight  # Shape: [64, 3, 7, 7]
+        #     # Average across the 3 input channels
+        #     conv1_weight_1ch = conv1_weight.mean(
+        #         dim=1, keepdim=True
+        #     )  # Shape: [64, 1, 7, 7]
+        #     self.backbone.conv1 = nn.Conv2d(
+        #         1, 64, kernel_size=7, stride=2, padding=3, bias=False
+        #     )
+        #     self.backbone.conv1.weight = nn.Parameter(conv1_weight_1ch)
+        # else:
+        #     self.backbone.conv1 = nn.Conv2d(
+        #         1, 64, kernel_size=7, stride=2, padding=3, bias=False
+        #     )
 
         # Replace fc with a 1x1 convolution to output hidden channels
         self.backbone.fc = nn.Conv2d(in_channels, hidden, kernel_size=1)

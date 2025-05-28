@@ -5,7 +5,7 @@ from PIL import Image
 import os
 import random
 from config.model_config import OCRModelConfig
-from utils.resize_and_pad import resize_and_pad
+from utils.resize_and_pad import ResizeAndPadTransform
 from utils.label_text_mapping import text_to_labels
 
 
@@ -42,15 +42,6 @@ def split_dataset(
     return train_data, val_data
 
 
-class ResizeAndPadTransform:
-    def __init__(self, height, width):
-        self.height = height
-        self.width = width
-
-    def __call__(self, img):
-        return resize_and_pad(img, self.height, self.width)
-
-
 class OCRModelNaturalDataset(torch.utils.data.Dataset):
     def __init__(
         self,
@@ -67,43 +58,60 @@ class OCRModelNaturalDataset(torch.utils.data.Dataset):
             self.transform = transforms.Compose(
                 [
                     transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.5], std=[0.5]),
+                    transforms.Normalize(
+                        mean=self.config.natural_mean,
+                        std=self.config.natural_std,
+                    ),
                 ]
                 if eval
                 else [
-                    transforms.ColorJitter(contrast=(0.5, 1)),
+                    # transforms.ColorJitter(contrast=(0.5, 1)),
                     transforms.RandomRotation(degrees=(-9, 9), fill=255),
                     transforms.RandomAffine(degrees=5, scale=(0.9, 1.1), shear=2),
                     transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.5], std=[0.5]),
+                    transforms.Normalize(
+                        mean=self.config.natural_mean,
+                        std=self.config.natural_std,
+                    ),
                 ]
             )
         else:
             self.transform = transforms.Compose(
                 [
-                    transforms.Grayscale(num_output_channels=1),
+                    # transforms.Grayscale(num_output_channels=1),  # for 1-dim input
+                    transforms.Grayscale(num_output_channels=3),  # for 3-dim input
                     ResizeAndPadTransform(self.config.height, self.config.width),
                     transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.5], std=[0.5]),
+                    transforms.Normalize(
+                        mean=self.config.natural_mean,
+                        std=self.config.natural_std,
+                    ),
                 ]
                 if eval
                 else [
-                    transforms.Grayscale(num_output_channels=1),
+                    # transforms.Grayscale(num_output_channels=1), # for 1-dim input
+                    transforms.Grayscale(num_output_channels=3),  # for 3-dim input
                     ResizeAndPadTransform(self.config.height, self.config.width),
-                    transforms.ColorJitter(contrast=(0.5, 1)),
+                    # transforms.ColorJitter(contrast=(0.5, 1)),
                     transforms.RandomRotation(degrees=(-9, 9), fill=255),
                     transforms.RandomAffine(degrees=5, scale=(0.9, 1.1), shear=2),
                     transforms.ToTensor(),
-                    transforms.Normalize(mean=[0.5], std=[0.5]),
+                    transforms.Normalize(
+                        mean=self.config.natural_mean,
+                        std=self.config.natural_std,
+                    ),
                 ]
             )
 
     def __getitem__(self, index):
-        img = (
-            Image.open(self.image_paths[index]).convert("L")
-            if self.preprocessed
-            else Image.open(self.image_paths[index]).convert("RGB")
-        )
+        # for 1-dim input:
+        # img = (
+        #     Image.open(self.image_paths[index]).convert("L")
+        #     if self.preprocessed
+        #     else Image.open(self.image_paths[index]).convert("RGB")
+        # )
+        # for 3-dim input:
+        img = Image.open(self.image_paths[index]).convert("RGB")
 
         img_tensor: torch.Tensor = self.transform(img)  # type: ignore
         label_encoding = text_to_labels(self.labels[index], self.config)
