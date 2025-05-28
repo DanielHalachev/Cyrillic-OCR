@@ -170,7 +170,7 @@ def train(
         all_records.extend(
             [
                 (epoch, img, label, pred, cer, wer)
-                for img, label, pred, cer, wer in records
+                for epoch, img, label, pred, cer, wer in records
             ]
         )
         table = wandb.Table(columns=columns)
