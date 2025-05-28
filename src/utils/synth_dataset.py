@@ -68,12 +68,16 @@ def get_synthetic_datasets(config: OCRModelConfig):
     np.random.shuffle(indices)
     indices = indices[:reduced_size]
 
-    train_end = int(0.9474 * total_size)  # ~90% of entire dataset
-    train_indices = indices[:train_end]
-    val_indices = indices[train_end:]
+    # Split the reduced dataset into train and validation
+    train_size = int(0.9 * reduced_size)  # 90% of reduced dataset
+    train_indices = indices[:train_size]
+    val_indices = indices[train_size:]
 
     train_split = Subset(trainval_data, train_indices)
     val_split = Subset(trainval_data, val_indices)
+
+    # Debug print to verify
+    print(f"Train set size: {len(train_split)}, Validation set size: {len(val_split)}")
 
     test_size = len(test_data)
     reduced_test_size = int(test_size * fraction)

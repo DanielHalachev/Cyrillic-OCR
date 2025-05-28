@@ -103,7 +103,6 @@ def validate_epoch(
             )
 
             predictions = wrapper.predict(src)  # List of predicted texts
-
             for i, (pred, label) in enumerate(zip(predictions, labels)):
                 cer = char_error_rate(label, pred) if pred else 1.0
                 wer = word_error_rate(label, pred) if pred else 1.0
