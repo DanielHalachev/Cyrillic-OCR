@@ -70,7 +70,6 @@ def validate_epoch(
     wrapper: OCRModelWrapper,
     criterion,
     dataloader: DataLoader,
-    table,
     num_samples_to_log=5,
 ):
     cer_overall = 0.0
@@ -82,11 +81,11 @@ def validate_epoch(
     logged_samples = 0
     total_samples = 0
 
+    records = []
+
     cfg = OCRModelConfig()
     IMG_MEAN = cfg.natural_mean
     IMG_STD = cfg.natural_std
-    # IMG_MEAN = cfg.synthetic_mean
-    # IMG_STD = cfg.synthetic_std
 
     with torch.no_grad():
         for src, labels, trg in tqdm(dataloader):
@@ -126,15 +125,14 @@ def validate_epoch(
                     img = img.clamp(0, 1)
                     # img = img.squeeze(0)  # [H, W]
                     img = torchvision.transforms.ToPILImage()(img)
-                    table.add_data(epoch, wandb.Image(img), label, pred, cer, wer)
+                    records.append({epoch, img, label, pred, cer, wer})
                     logged_samples += 1
-
-    wandb.log({"validation_samples": table}, step=epoch)
 
     return (
         cer_overall / counter,
         wer_overall / counter,
         validation_loss / counter,
+        records,
     )
 
 
@@ -150,15 +148,14 @@ def train(
     patience=5,
 ):
     columns = ["Epoch", "Image", "Ground Truth", "Prediction", "CER", "WER"]
-    table = wandb.Table(columns=columns)
-
+    all_records = []
     best_cer = float("inf")
     patience_counter = 0
     for epoch in range(epochs):
         print(f"==================== EPOCH {(epoch + 1)} ====================")
         train_loss = train_epoch(wrapper, optimizer, scheduler, criterion, train_loader)
-        cer_loss, wer_loss, validation_loss = validate_epoch(
-            epoch, wrapper, criterion, validation_loader, table, num_samples_to_log=5
+        cer_loss, wer_loss, validation_loss, records = validate_epoch(
+            epoch, wrapper, criterion, validation_loader, num_samples_to_log=5
         )
         wandb.log(
             {
@@ -169,6 +166,19 @@ def train(
                 "wer_loss": wer_loss,
             }
         )
+
+        all_records.extend(
+            [
+                (epoch, img, label, pred, cer, wer)
+                for img, label, pred, cer, wer in records
+            ]
+        )
+        table = wandb.Table(columns=columns)
+        for epoch, img, label, pred, cer, wer in all_records:
+            table.add_data(epoch, wandb.Image(img), label, pred, cer, wer)
+
+        wandb.log({"validation_samples": table})
+
         print(
             f"Epoch {epoch}: Train Loss={train_loss:.4f}, Val Loss={validation_loss:.4f}, CER={cer_loss:.4f}, WER={wer_loss:.4f}"
         )
