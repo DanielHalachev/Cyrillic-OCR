@@ -55,15 +55,18 @@ class SyntheticCyrillicDataset(torch.utils.data.Dataset):
 
 
 def get_synthetic_datasets(config: OCRModelConfig):
+    fraction = 0.25
     full_dataset = load_dataset("pumb-ai/synthetic-cyrillic-large")
 
     trainval_data = full_dataset["train"]
     test_data = full_dataset["test"]
 
     total_size = len(trainval_data)
+    reduced_size = int(total_size * fraction)
     indices = list(range(total_size))
     np.random.seed(42)
     np.random.shuffle(indices)
+    indices = indices[:reduced_size]
 
     train_end = int(0.9474 * total_size)  # ~90% of entire dataset
     train_indices = indices[:train_end]
@@ -72,9 +75,18 @@ def get_synthetic_datasets(config: OCRModelConfig):
     train_split = Subset(trainval_data, train_indices)
     val_split = Subset(trainval_data, val_indices)
 
+    test_size = len(test_data)
+    reduced_test_size = int(test_size * fraction)
+    test_indices = list(range(test_size))
+    np.random.seed(42)
+    np.random.shuffle(test_indices)
+    test_indices = test_indices[:reduced_test_size]
+
+    test_split = Subset(test_data, test_indices)
+
     # Create datasets
     train_dataset = SyntheticCyrillicDataset(train_split, config, eval=False)
     val_dataset = SyntheticCyrillicDataset(val_split, config, eval=True)
-    test_dataset = SyntheticCyrillicDataset(full_dataset["test"], config, eval=True)
+    test_dataset = SyntheticCyrillicDataset(test_split, config, eval=True)
 
     return train_dataset, val_dataset, test_dataset
