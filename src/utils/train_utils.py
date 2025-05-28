@@ -169,7 +169,7 @@ def train(
 
         all_records.extend(
             [
-                (epoch, img, label, pred, cer, wer)
+                (epoch, wandb.Image(img), label, pred, cer, wer)
                 for epoch, img, label, pred, cer, wer in records
             ]
         )
