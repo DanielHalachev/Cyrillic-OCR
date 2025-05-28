@@ -129,7 +129,7 @@ def validate_epoch(
                     table.add_data(epoch, wandb.Image(img), label, pred, cer, wer)
                     logged_samples += 1
 
-    wandb.log({"validation_samples": table})
+    wandb.log({"validation_samples": table}, step=epoch)
 
     return (
         cer_overall / counter,
