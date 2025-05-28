@@ -125,7 +125,7 @@ def validate_epoch(
                     img = img.clamp(0, 1)
                     # img = img.squeeze(0)  # [H, W]
                     img = torchvision.transforms.ToPILImage()(img)
-                    records.append({epoch, img, label, pred, cer, wer})
+                    records.append((epoch, img, label, pred, cer, wer))
                     logged_samples += 1
 
     return (
