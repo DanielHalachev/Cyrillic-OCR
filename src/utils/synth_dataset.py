@@ -48,8 +48,8 @@ class SyntheticCyrillicDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         item = self.dataset[index]
-        img_tensor = self.transform(item["image"])
-        text = item["text"]
+        img_tensor = self.transform(item["png"])
+        text = item["txt"]
         label_encoding = text_to_labels(text, self.config)
         return img_tensor, text, torch.LongTensor(label_encoding)
 
