@@ -177,7 +177,7 @@ def train(
             best_cer = cer_loss
             patience_counter = 0
             wrapper.model.save_model(save_path)
-            wandb.save(str(Path(os.path.expanduser(save_path))))
+            wandb.save(str(Path(save_path)))
         else:
             patience_counter += 1
         if patience_counter >= patience:
@@ -246,7 +246,7 @@ def train_synthetic(
             "test_wer": test_wer,
         }
     )
-    wrapper.model.save_model(Path(os.path.expanduser(save_path)))
+    wrapper.model.save_model(Path(save_path))
 
 
 def train_natural(
@@ -309,4 +309,4 @@ def train_natural(
 
     test(wrapper, test_loader)
 
-    wrapper.model.save_model(Path(os.path.expanduser(save_path)))
+    wrapper.model.save_model(Path(save_path))

@@ -37,32 +37,32 @@ if __name__ == "__main__":
     model = ResnetOCRModel(model_config)
     model = model.to(device)
     print("Device: ", next(model.parameters()).device)
-    # wrapper = OCRModelWrapper(model, model_config, device)
+    wrapper = OCRModelWrapper(model, model_config, device)
 
-    # with wandb.init(project="cyrillic-ocr-synthetic"):
-    #     wandb.config.update(
-    #         {
-    #             "learning_rate": train_config.synthentic_lr,
-    #             "epochs": train_config.synthetic_epochs,
-    #             "batch_size": train_config.synthetic_batch_size,
-    #             "dataset": "https://huggingface.co/datasets/pumb-ai/synthetic-cyrillic-large"
-    #         }
-    #     )
+    with wandb.init(project="cyrillic-ocr-synthetic"):
+        wandb.config.update(
+            {
+                "learning_rate": train_config.synthetic_lr,
+                "epochs": train_config.synthetic_epochs,
+                "batch_size": train_config.synthetic_batch_size,
+                "dataset": "https://huggingface.co/datasets/pumb-ai/synthetic-cyrillic-large",
+            }
+        )
 
-    #     wandb.watch(model)
+        wandb.watch(model)
 
-    #     train_synthetic(
-    #         train_config.synthetic_epochs,
-    #         model_config,
-    #         wrapper,
-    #         train_config.synthetic_batch_size,
-    #         train_config.synthentic_lr,
-    #         train_config.synthetic_decay_rate,
-    #         Path(train_config.synthetic_checkpoint_path),
-    #         train_config.workers,
-    #     )
+        train_synthetic(
+            train_config.synthetic_epochs,
+            model_config,
+            wrapper,
+            train_config.synthetic_batch_size,
+            train_config.synthetic_lr,
+            train_config.synthetic_decay_rate,
+            Path(train_config.synthetic_checkpoint_path),
+            train_config.workers,
+        )
 
-    #     wandb.finish()
+        wandb.finish()
 
     # if everything goes well with pretraining, uncomment for fine-tuning
     with wandb.init(project="cyrillic-ocr-natural"):
@@ -74,8 +74,8 @@ if __name__ == "__main__":
                 "dataset": "https://www.kaggle.com/datasets/constantinwerner/cyrillic-handwriting-dataset",
             }
         )
-        # x
-        wrapper = OCRModelWrapper(model, model_config, device)
+
+        # wrapper = OCRModelWrapper(model, model_config, device)
         wandb.watch(model)
         train_natural(
             train_config.natural_epochs,

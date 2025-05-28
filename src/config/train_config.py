@@ -11,8 +11,8 @@ class OCRTrainConfig:
     synthetic_epochs = 50
     natural_epochs = 50
 
-    synthetic_checkpoint_path = "~/synthetic-resnet-50.pt"
-    natural_checkpoint_path = "~/synthetic-natural-resnet-50.pt"
+    synthetic_checkpoint_path = "./synthetic-resnet-50.pt"
+    natural_checkpoint_path = "./synthetic-natural-resnet-50.pt"
 
     workers = 8
 
