@@ -173,10 +173,7 @@ def train(
                 for epoch, img, label, pred, cer, wer in records
             ]
         )
-        table = wandb.Table(columns=columns)
-        for epoch, img, label, pred, cer, wer in all_records:
-            table.add_data(epoch, wandb.Image(img), label, pred, cer, wer)
-
+        table = wandb.Table(columns=columns, data=all_records)
         wandb.log({"validation_samples": table})
 
         print(
