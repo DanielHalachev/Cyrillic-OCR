@@ -4,7 +4,7 @@ from torchvision import transforms  # type:ignore
 from PIL import Image
 
 from utils.label_text_mapping import labels_to_text
-from utils.resize_and_pad import resize_and_pad
+from utils.resize_and_pad import ResizeAndPadTransform, resize_and_pad
 from .ocr_model import OCRModel
 from config.model_config import OCRModelConfig
 
@@ -27,14 +27,10 @@ class OCRModelWrapper:
 
         self.transform = transforms.Compose(
             [
-                transforms.ToPILImage(),
-                # transforms.Grayscale(num_output_channels=3),
-                transforms.Grayscale(num_output_channels=1),
-                transforms.Lambda(
-                    lambda img: resize_and_pad(
-                        img, self.config.height, self.config.width
-                    )
-                ),
+                # transforms.ToPILImage(),
+                transforms.Grayscale(num_output_channels=3),
+                # transforms.Grayscale(num_output_channels=1),
+                ResizeAndPadTransform(self.config.height, self.config.width),
                 transforms.ToTensor(),
                 transforms.Normalize(mean=[0.5], std=[0.5]),
             ]
@@ -61,7 +57,7 @@ class OCRModelWrapper:
 
         return tensor.to(self.device)
 
-    def predict(self, image_input):
+    def predict(self, image_input: str | Image.Image | torch.Tensor):
         with torch.no_grad():
             image_tensor = self.preprocess_image(image_input).to(self.device)
             batch_size = image_tensor.size(0)

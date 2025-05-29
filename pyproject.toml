@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "datasets>=3.6.0",
     "easyocr>=1.7.2",
+    "flask>=3.1.1",
     "levenshtein>=0.27.1",
     "torch>=2.7.0",
     "torchvision>=0.22.0",
