@@ -193,3 +193,54 @@ This project demonstrates the usefulness of the CNN-Transformer architecture for
 - using 100% of the synthetic dataset (this project only used 25%)
 - experimenting with a deformable convolution backbone (this project implements it, but does not experiment with it)
 - using alternative or additional datasets
+
+## References. Useful Links
+
+### References
+
+This project was inspired by several sources:
+
+- [TrOCR: Transformer-based OCR with Pre-trained Models](https://arxiv.org/abs/2109.10282)
+- [Deformable Convolution Networks](https://arxiv.org/abs/1703.06211)
+- [DOTA: Deformable Optimized Transformer Architecture for End-to-End Text Recognition with Retrieval-Augmented Generation](https://arxiv.org/abs/2505.04175)
+- [Data Generation for Post-OCR correction of Cyrillic handwriting](https://arxiv.org/abs/2311.15896)
+- [ScrabbleGAN: Semi-supervised varying length handwritten text generation](https://www.amazon.science/publications/scrabblegan-semi-supervised-varying-length-handwritten-text-generation)
+- [vergotten/CyrillicOCR-Resnet-Transformer](https://github.com/vergotten/CyrillicOCR-ResNet-Transformer)
+
+### A List of Useful Dataset Sources for Cyrillic OCR
+
+#### Kaggle
+
+[Cyrillic Handwriting Dataset](https://www.kaggle.com/datasets/constantinwerner/cyrillic-handwriting-dataset)
+
+[PPT OCR Data of 8 Languages](https://www.kaggle.com/datasets/nexdatafrank/ppt-ocr-data-of-8-languages)
+
+[Opticat Characted Recognition Dataset (Handwriting in Russian)](https://www.kaggle.com/datasets/tamirpuzanov/nto-task2-dataset)
+
+[RusTitW - Russian Visual Text Recognition in the wild](https://www.kaggle.com/datasets/hardtype/rustitw-russian-language-visual-text-recognition)
+
+[OCR Receipt Text Detection](https://www.kaggle.com/datasets/trainingdatapro/ocr-receipts-text-detection)
+
+#### HuggingFace
+
+[DonkeySmall](https://huggingface.co/DonkeySmall)
+
+[GAN (synthetic) Cyrillic](https://huggingface.co/datasets/nastyboget/gan_cyrillic)
+
+[Stackmix Cyrillic Large](https://huggingface.co/datasets/nastyboget/stackmix_cyrillic_large)
+
+[Synthetic Cyrillic Large](https://huggingface.co/datasets/pumb-ai/synthetic-cyrillic-large)
+
+[Synthhog Multilingual](https://huggingface.co/datasets/WueNLP/Synthdog-Multilingual-100)
+
+[HWR200](https://huggingface.co/datasets/AntiplagiatCompany/HWR200)
+
+[School Notebook Dataset](https://huggingface.co/datasets/ai-forever/school_notebooks_RU)
+
+#### Characted-Level Datasets
+
+[Russian Handwritten Letters](https://www.kaggle.com/datasets/tatianasnwrt/russian-handwritten-letters)
+
+[Handwritten Mongolian Cyrillic Characters](https://www.kaggle.com/datasets/vimpigro/handwritten-mongolian-cyrillic-characters-database)
+
+[Cyrillic Oriented MNIST](https://www.kaggle.com/datasets/gregvial/comnist)
